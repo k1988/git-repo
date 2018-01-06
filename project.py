@@ -719,6 +719,10 @@ class Project(object):
                                           defaults=self.manifest.globalConfig)
 
     if self.worktree:
+      if self.config.GetString('core.filemode') == 'true':
+          # in ntfs can't use filemode
+          print("---- change core.filemode to false", self.gitdir)
+          self.config.SetString('core.filemode','false')
       self.work_git = self._GitGetByExec(self, bare=False, gitdir=gitdir)
     else:
       self.work_git = None
@@ -1175,6 +1179,8 @@ class Project(object):
         - tarpath: The path to the actual tar file
 
     """
+    name = self.relpath.replace('\\', '/')
+    print("---- %s _ExtractArchive tarpath:%s" % (name, tarpath))
     try:
       with tarfile.open(tarpath, 'r') as tar:
         tar.extractall(path=path)
@@ -1205,6 +1211,7 @@ class Project(object):
       name = name.replace('/', '_')
       tarpath = '%s.tar' % name
       topdir = self.manifest.topdir
+      print("---- %s Sync_NetworkHalf tarpath:%s" % (name, tarpath))
 
       try:
         self._FetchArchive(tarpath, cwd=topdir)
@@ -1226,8 +1233,10 @@ class Project(object):
     if is_new is None:
       is_new = not self.Exists
     if is_new:
+      print("---- %s _InitGitDir %s" % (self.relpath, force_sync))
       self._InitGitDir(force_sync=force_sync)
     else:
+      print("---- %s _UpdateHooks" % (self.relpath))
       self._UpdateHooks()
     self._InitRemote()
 
@@ -1261,6 +1270,7 @@ class Project(object):
     need_to_fetch = not (optimized_fetch and
                          (ID_RE.match(self.revisionExpr) and
                           self._CheckForSha1()))
+    print("---- %s alt_dir:%s need_to_fetch:%s current_branch_only:%s no_tags:%s" % (self.relpath, alt_dir, need_to_fetch, current_branch_only, no_tags))
     if (need_to_fetch and
         not self._RemoteFetch(initial=is_new, quiet=quiet, alt_dir=alt_dir,
                               current_branch_only=current_branch_only,
@@ -2296,6 +2306,7 @@ class Project(object):
           if m.Has(key, include_defaults=False):
             self.config.SetString(key, m.GetString(key))
         self.config.SetString('filter.lfs.smudge', 'git-lfs smudge --skip -- %f')
+        self.config.SetString('core.filemode', 'false')
         if self.manifest.IsMirror:
           self.config.SetString('core.bare', 'true')
         else:
